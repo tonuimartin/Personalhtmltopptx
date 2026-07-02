@@ -1,0 +1,4 @@
+Place optional tooling here:
+
+- `LibreOffice/` — portable LibreOffice install (`program/soffice.exe`) for QA PNG conversion
+- `fonts/` — `.ttf` files copied beside output when "Embed bundled fonts" is enabled (license permitting)

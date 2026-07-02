@@ -1,0 +1,204 @@
+<Window x:Class="HtmlToSlidesPro.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:local="clr-namespace:HtmlToSlidesPro"
+        Title="HtmlToSlidesPro" Height="900" Width="1400"
+        MinHeight="700" MinWidth="1100">
+    <Grid Margin="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="380"/>
+            <ColumnDefinition x:Name="LivePreviewColumn" Width="*" MinWidth="0"/>
+            <ColumnDefinition x:Name="DiagnosticsColumn" Width="420" MinWidth="0"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Input -->
+        <DockPanel Grid.Column="0" Grid.Row="0" Margin="0,0,8,0">
+            <TextBlock DockPanel.Dock="Top" Text="HTML Input" FontWeight="SemiBold" Margin="0,0,0,6"/>
+            <TabControl x:Name="HtmlSourceTabs" DockPanel.Dock="Top" Height="220" Margin="0,0,0,8">
+                <TabItem Header="File">
+                    <StackPanel Margin="8">
+                        <TextBox x:Name="HtmlFilePathBox" Margin="0,0,0,6"/>
+                        <Button Content="Browse..." Click="BrowseHtml_Click" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </TabItem>
+                <TabItem Header="Paste">
+                    <TextBox x:Name="HtmlPasteBox" AcceptsReturn="True" TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto" Margin="8"
+                             Text="&lt;h1 style=&quot;font-family: Inter, sans-serif; color:#1e293b&quot;&gt;Hello HtmlToSlidesPro&lt;/h1&gt;&lt;p style=&quot;font-family: Roboto, sans-serif&quot;&gt;DOM-to-shapes conversion demo.&lt;/p&gt;"/>
+                </TabItem>
+            </TabControl>
+
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <TextBlock Text="Conversion mode" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                <RadioButton x:Name="ModeHighFidelityRadio" Content="High fidelity (slide images)" IsChecked="True" GroupName="Mode" Margin="0,0,0,2"/>
+                <RadioButton x:Name="ModeEditableRadio" Content="Editable (DOM-to-shapes)" GroupName="Mode" Margin="0,0,0,2"/>
+                <RadioButton x:Name="ModeLlmRadio" Content="LLM semantic (Ollama — local)" GroupName="Mode" Margin="0,0,0,6"
+                             Checked="ModeLlmRadio_Changed" Unchecked="ModeLlmRadio_Changed"/>
+
+                <StackPanel x:Name="OllamaPanel" Visibility="Collapsed" Margin="12,0,0,8">
+                    <TextBlock Text="Ollama endpoint" Margin="0,0,0,2"/>
+                    <TextBox x:Name="OllamaEndpointBox" Text="http://localhost:11434" Margin="0,0,0,4"/>
+                    <TextBlock Text="Model (e.g. llama3.1:8b or phi3)" Margin="0,0,0,2"/>
+                    <TextBox x:Name="OllamaModelBox" Text="llama3.1:8b" ToolTip="Run: ollama pull llama3.1:8b" Margin="0,0,0,4"/>
+                    <CheckBox x:Name="SkipLlmCheck" Content="Skip LLM (instant layout, no Ollama wait)" Margin="0,0,0,4"/>
+                    <TextBlock Text="First Ollama run loads the model (slow on CPU). Use Skip LLM or phi3 for speed." 
+                               TextWrapping="Wrap" FontSize="11" Foreground="#666"/>
+                </StackPanel>
+
+                <CheckBox x:Name="EmbedFontsCheck" Content="Export bundled fonts sidecar (tools/fonts/*.ttf)" Margin="0,0,0,6"/>
+                <TextBlock Text="LibreOffice path (optional, QA only)" Margin="0,0,0,4"/>
+                <TextBox x:Name="LibreOfficePathBox" ToolTip="soffice.exe — auto-detected from tools/LibreOffice or PATH"/>
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                <Button x:Name="ConvertButton" Content="Convert" Click="Convert_Click" Padding="16,6" Margin="0,0,8,0"/>
+                <Button Content="Refresh Preview" Click="RefreshPreview_Click" Padding="12,6"/>
+            </StackPanel>
+
+            <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" TextWrapping="Wrap" Foreground="#555" Margin="0,8,0,0"/>
+        </DockPanel>
+
+        <!-- Live preview (WebView2 only — no split lines) -->
+        <DockPanel x:Name="LivePreviewPanel" Grid.Column="1" Grid.Row="0" Margin="0,0,8,0">
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Live Preview (WebView2)" FontWeight="SemiBold"/>
+                    <TextBlock Text="Quick HTML preview. Set slide splits in QA Split Preview (Puppeteer)."
+                               FontSize="11" Foreground="#666" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    <TextBlock Text="{x:Static local:SlideSpec.Summary}"
+                               FontSize="11" Foreground="#666" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                </StackPanel>
+                <Button x:Name="ToggleLivePreviewButton" Grid.Column="1" Content="Hide live preview ▶"
+                        Click="ToggleLivePreview_Click" Padding="10,4" VerticalAlignment="Top" Margin="8,0,0,0"/>
+                <Button x:Name="ToggleDiagnosticsButton" Grid.Column="2" Content="Hide diagnostics ▶"
+                        Click="ToggleDiagnostics_Click" Padding="10,4" VerticalAlignment="Top" Margin="8,0,0,0"/>
+            </Grid>
+            <Border BorderBrush="#CCC" BorderThickness="1">
+                <wv2:WebView2 x:Name="PreviewWebView"/>
+            </Border>
+        </DockPanel>
+
+        <!-- Diagnostics -->
+        <DockPanel x:Name="DiagnosticsPanel" Grid.Column="2" Grid.Row="0">
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Diagnostics" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <Button x:Name="ShowLivePreviewButton" Grid.Column="1" Content="◀ Show live preview"
+                        Click="ToggleLivePreview_Click" Padding="10,4" VerticalAlignment="Center"
+                        Visibility="Collapsed"/>
+            </Grid>
+            <TabControl x:Name="DiagnosticsTabs" SelectionChanged="DiagnosticsTabs_SelectionChanged"
+                        VerticalAlignment="Stretch">
+                <TabItem Header="Elements">
+                    <DataGrid x:Name="DiagnosticsGrid" AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserDeleteRows="False"
+                              GridLinesVisibility="Horizontal" HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Slide" Binding="{Binding Slide}" Width="40"/>
+                            <DataGridTextColumn Header="Tag" Binding="{Binding Tag}" Width="50"/>
+                            <DataGridTextColumn Header="Shape" Binding="{Binding ShapeType}" Width="90"/>
+                            <DataGridTextColumn Header="Raster?" Binding="{Binding Rasterized}" Width="50"/>
+                            <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="*"/>
+                            <DataGridTextColumn Header="Path" Binding="{Binding ElementPath}" Width="120"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+                <TabItem Header="QA Split Preview" VerticalAlignment="Stretch">
+                    <Grid VerticalAlignment="Stretch">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*" MinHeight="200"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto" MaxHeight="220"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="0,0,0,6">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <Button x:Name="RefreshQaPreviewButton" Content="Refresh QA preview" Click="RefreshQaPreview_Click" Padding="8,4" Margin="0,0,6,0"/>
+                                <Button x:Name="ApplySplitsButton" Content="Apply splits" Click="ApplySplits_Click" Padding="8,4" Margin="0,0,6,0"/>
+                                <Button Content="Reset splits" Click="ResetQaSplits_Click" Padding="8,4" Margin="0,0,6,0"/>
+                                <Button x:Name="AddQaSplitButton" Content="Add split" Click="AddQaSplit_Click" Padding="8,4" Margin="0,0,6,0"/>
+                                <Button x:Name="RemoveQaSplitButton" Content="Remove split" Click="RemoveQaSplit_Click" Padding="8,4" Margin="0,0,6,0"/>
+                                <TextBlock Text="Zoom" VerticalAlignment="Center" Margin="8,0,4,0" FontSize="11" Foreground="#666"/>
+                                <ComboBox x:Name="QaZoomCombo" Width="100" VerticalAlignment="Center"
+                                          SelectionChanged="QaZoomCombo_SelectionChanged">
+                                    <ComboBoxItem Content="Fit width" IsSelected="True"/>
+                                    <ComboBoxItem Content="75%"/>
+                                    <ComboBoxItem Content="50%"/>
+                                    <ComboBoxItem Content="100%"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <TextBlock x:Name="SplitStatusText" FontSize="11" Foreground="#666" TextWrapping="Wrap"/>
+                            <TextBlock Text="Drag red lines to adjust. Double-click the page to add a split; right-click a line to remove it."
+                                       FontSize="11" Foreground="#666" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <TextBlock Text="{x:Static local:SlideSpec.Summary}"
+                                       FontSize="11" Foreground="#666" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <ScrollViewer Grid.Row="1" x:Name="QaPageScrollViewer"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      CanContentScroll="False"
+                                      SizeChanged="QaPageScrollViewer_SizeChanged">
+                            <Grid HorizontalAlignment="Left">
+                                <TextBlock x:Name="QaPreviewPlaceholder"
+                                           Text="Open this tab or click Refresh QA preview to load the Puppeteer page capture."
+                                           Foreground="#666" TextWrapping="Wrap" Margin="8"/>
+                                <Border x:Name="QaSplitFrame" Visibility="Collapsed" BorderBrush="#CCC" BorderThickness="1" HorizontalAlignment="Left">
+                                    <Grid x:Name="QaSplitHost">
+                                        <Image x:Name="QaPageImage" Stretch="Fill" IsHitTestVisible="False"/>
+                                        <Canvas x:Name="QaSplitCanvas" Background="Transparent" IsHitTestVisible="True"
+                                                MouseLeftButtonDown="QaSplitCanvas_MouseLeftButtonDown"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </ScrollViewer>
+
+                        <TextBlock Grid.Row="2" Text="Slide clips" FontWeight="SemiBold" Margin="0,8,0,4"/>
+                        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="QaItems">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#DDD" BorderThickness="1" Margin="0,0,0,8" Padding="6">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Caption}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                                <TextBlock Text="{Binding Slide, StringFormat=Slide {0}}" Margin="0,0,0,4"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition/>
+                                                        <ColumnDefinition/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                                        <TextBlock Text="Puppeteer" FontSize="11" Foreground="#666"/>
+                                                        <Image Source="{Binding PuppeteerImage}" Stretch="Uniform" MaxHeight="120"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                                        <TextBlock Text="{Binding RightPanelLabel}" FontSize="11" Foreground="#666"/>
+                                                        <Image Source="{Binding LibreOfficeImage}" Stretch="Uniform" MaxHeight="120"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </DockPanel>
+    </Grid>
+</Window>
