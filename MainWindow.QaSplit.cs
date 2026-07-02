@@ -179,44 +179,68 @@ public partial class MainWindow
 
     private void RenderQaSplitLines()
     {
+        if (_draggingQaLine is not null)
+            return;
+
         QaSplitCanvas.Children.Clear();
 
         foreach (var (y, index) in _qaSplitYs.Select((y, i) => (y, i)))
         {
-            var handle = new Border
-            {
-                Height = QaLineHitHeight,
-                Background = Brushes.Transparent,
-                Cursor = Cursors.SizeNS,
-                ToolTip = $"Slide {index + 1} | {index + 2} @ {y}px"
-            };
-
-            var bar = new Border
-            {
-                Height = index == _selectedQaLineIndex ? 5 : 3,
-                VerticalAlignment = VerticalAlignment.Center,
-                Background = new SolidColorBrush(index == _selectedQaLineIndex
-                    ? Color.FromRgb(190, 24, 93)
-                    : Color.FromRgb(225, 29, 72)),
-                IsHitTestVisible = false
-            };
-            handle.Child = bar;
-
-            var lineWidth = Math.Max(1, QaSplitCanvas.Width);
-            handle.Width = lineWidth;
-
-            Canvas.SetTop(handle, y * _qaDisplayScale - QaLineHitHeight / 2);
-            Canvas.SetLeft(handle, 0);
-
-            var lineIndex = index;
-            handle.MouseLeftButtonDown += (_, e) =>
-            {
-                _selectedQaLineIndex = lineIndex;
-                RenderQaSplitLines();
-                StartQaLineDrag(lineIndex, handle, e);
-            };
-            handle.MouseRightButtonDown += (_, e) => RemoveQaSplitAt(lineIndex, e);
+            var handle = CreateQaSplitHandle(y, index);
             QaSplitCanvas.Children.Add(handle);
+        }
+    }
+
+    private Border CreateQaSplitHandle(int y, int index)
+    {
+        var handle = new Border
+        {
+            Height = QaLineHitHeight,
+            Background = Brushes.Transparent,
+            Cursor = Cursors.SizeNS,
+            ToolTip = $"Slide {index + 1} | {index + 2} @ {y}px"
+        };
+
+        var bar = new Border
+        {
+            Height = index == _selectedQaLineIndex ? 5 : 3,
+            VerticalAlignment = VerticalAlignment.Center,
+            Background = new SolidColorBrush(index == _selectedQaLineIndex
+                ? Color.FromRgb(190, 24, 93)
+                : Color.FromRgb(225, 29, 72)),
+            IsHitTestVisible = false
+        };
+        handle.Child = bar;
+
+        var lineWidth = Math.Max(1, QaSplitCanvas.Width);
+        handle.Width = lineWidth;
+
+        Canvas.SetTop(handle, y * _qaDisplayScale - QaLineHitHeight / 2);
+        Canvas.SetLeft(handle, 0);
+
+        var lineIndex = index;
+        handle.MouseLeftButtonDown += (_, e) =>
+        {
+            _selectedQaLineIndex = lineIndex;
+            UpdateQaLineSelectionHighlights();
+            StartQaLineDrag(lineIndex, handle, e);
+        };
+        handle.MouseRightButtonDown += (_, e) => RemoveQaSplitAt(lineIndex, e);
+        return handle;
+    }
+
+    private void UpdateQaLineSelectionHighlights()
+    {
+        for (var i = 0; i < QaSplitCanvas.Children.Count; i++)
+        {
+            if (QaSplitCanvas.Children[i] is not Border handle || handle.Child is not Border bar)
+                continue;
+
+            var selected = i == _selectedQaLineIndex;
+            bar.Height = selected ? 5 : 3;
+            bar.Background = new SolidColorBrush(selected
+                ? Color.FromRgb(190, 24, 93)
+                : Color.FromRgb(225, 29, 72));
         }
     }
 
@@ -347,9 +371,9 @@ public partial class MainWindow
         _dragQaLineIndex = index;
         _dragQaStartMouseY = e.GetPosition(QaSplitCanvas).Y;
         _dragQaStartSplitY = _qaSplitYs[index];
-        handle.CaptureMouse();
-        handle.MouseMove += QaLine_MouseMove;
-        handle.MouseLeftButtonUp += QaLine_MouseUp;
+        QaSplitCanvas.CaptureMouse();
+        QaSplitCanvas.MouseMove += QaLine_MouseMove;
+        QaSplitCanvas.MouseLeftButtonUp += QaLine_MouseUp;
         e.Handled = true;
 
         if (_splitsApplied)
@@ -376,9 +400,9 @@ public partial class MainWindow
         if (_draggingQaLine is null)
             return;
 
-        _draggingQaLine.ReleaseMouseCapture();
-        _draggingQaLine.MouseMove -= QaLine_MouseMove;
-        _draggingQaLine.MouseLeftButtonUp -= QaLine_MouseUp;
+        QaSplitCanvas.ReleaseMouseCapture();
+        QaSplitCanvas.MouseMove -= QaLine_MouseMove;
+        QaSplitCanvas.MouseLeftButtonUp -= QaLine_MouseUp;
         _draggingQaLine = null;
         _dragQaLineIndex = -1;
 
